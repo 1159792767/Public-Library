@@ -1,0 +1,9 @@
+{
+  "version": "3.0.0",
+  "resources": [
+    {
+      "@id": "https://raw.githubusercontent.com/1159792767/Public-Library/main/feed/flat/",
+      "@type": "PackageBaseAddress/3.0.0"
+    }
+  ]
+}
