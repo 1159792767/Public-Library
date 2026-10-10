@@ -1,0 +1,26 @@
+using System.Diagnostics;
+using System.Net.Http;
+using System.Text.Json;
+namespace DllUpdates;
+internal static class Program {
+ [STAThread] static void Main(){ApplicationConfiguration.Initialize();Application.Run(new Window());}
+}
+public sealed class Window:Form {
+ readonly TextBox folder=new(){Width=570},product=new(){Width=570,Text="Company.Common"},host=new(){Width=570,Text="LabVIEW"};
+ readonly ComboBox kind=new(){Width=260,DropDownStyle=ComboBoxStyle.DropDownList},arch=new(){Width=260,DropDownStyle=ComboBoxStyle.DropDownList};
+ readonly Label status=new(){Width=680,Height=90};readonly CheckBox closed=new(){Width=680,Height=45,Text="我已关闭所有调用这些 DLL 的 LabVIEW / 应用程序"};
+ string? feed;
+ public Window(){Text="LabVIEW 公共 DLL 更新与回退";Width=780;Height=740;Font=new("Microsoft YaHei UI",10);StartPosition=FormStartPosition.CenterScreen;
+  var panel=new FlowLayoutPanel{Dock=DockStyle.Fill,Padding=new Padding(20),FlowDirection=FlowDirection.TopDown,WrapContents=false,AutoScroll=true};Controls.Add(panel);
+  void Label(string text)=>panel.Controls.Add(new Label{Text=text,AutoSize=true});
+  Label("公共 DLL 更新器（请先退出 LabVIEW）");Label("公共库标识（由维护者统一提供）");panel.Controls.Add(product);Label("调用方式");kind.Items.AddRange(["managed","native"]);kind.SelectedIndex=0;panel.Controls.Add(kind);Label("LabVIEW 位数，不是操作系统位数");arch.Items.AddRange(["x86","x64"]);arch.SelectedIndex=1;panel.Controls.Add(arch);
+  Label("DLL 目录");panel.Controls.Add(folder);var browse=new Button{Text="选择目录",AutoSize=true};browse.Click+=(_,_)=>{using var d=new FolderBrowserDialog();if(d.ShowDialog()==DialogResult.OK)folder.Text=d.SelectedPath;};panel.Controls.Add(browse);
+  Label("需要退出的进程名，不带 .exe（发布后的 LabVIEW EXE 填实际名称）");panel.Controls.Add(host);panel.Controls.Add(closed);
+  var import=new Button{Text="导入团队配置",AutoSize=true};import.Click+=(_,_)=>{try{using var d=new OpenFileDialog{Filter="配置|*.json"};if(d.ShowDialog()!=DialogResult.OK)return;using var j=JsonDocument.Parse(File.ReadAllText(d.FileName));var r=j.RootElement;product.Text=r.GetProperty("product").GetString();kind.SelectedItem=r.GetProperty("kind").GetString();arch.SelectedItem=r.GetProperty("architecture").GetString();feed=r.GetProperty("feed").GetString();status.Text="已导入配置。请核对 LabVIEW 位数和目标目录。";}catch(Exception e){status.Text=e.Message;}};panel.Controls.Add(import);
+  var local=new Button{Text="安装本地 DLL 更新包",AutoSize=true};local.Click+=(_,_)=>{try{Ready();using var d=new OpenFileDialog{Filter="更新包|*.zip"};if(d.ShowDialog()==DialogResult.OK)Apply(d.FileName);}catch(Exception e){status.Text="未完成："+e.Message;}};panel.Controls.Add(local);
+  var online=new Button{Text="从团队更新服务下载并安装",AutoSize=true};online.Click+=async(_,_)=>{online.Enabled=false;try{Ready();if(feed is null)throw new Exception("请先导入团队配置");if(!Uri.TryCreate(feed,UriKind.Absolute,out var endpoint)||endpoint.Scheme!="https")throw new Exception("更新地址必须为 HTTPS");using var http=new HttpClient{Timeout=TimeSpan.FromMinutes(5)};using var j=JsonDocument.Parse(await http.GetStringAsync(endpoint));var r=j.RootElement;var url=new Uri(r.GetProperty("url").GetString()!);if(url.Scheme!="https"||url.Host!=endpoint.Host)throw new Exception("下载必须位于相同 HTTPS 主机");var file=Path.Combine(Path.GetTempPath(),Guid.NewGuid()+".zip");using(var response=await http.GetAsync(url,HttpCompletionOption.ResponseHeadersRead)){response.EnsureSuccessStatusCode();await using var input=await response.Content.ReadAsStreamAsync();await using var output=File.Create(file);var buffer=new byte[81920];long size=0;int n;while((n=await input.ReadAsync(buffer))>0){if((size+=n)>512L*1024*1024)throw new Exception("包大小超限");await output.WriteAsync(buffer.AsMemory(0,n));status.Text=$"下载 {size/1048576.0:F1} MB";}}if(!string.Equals(Engine.Hash(file),r.GetProperty("sha256").GetString(),StringComparison.OrdinalIgnoreCase))throw new Exception("包校验失败");Ready();Apply(file);}catch(Exception e){status.Text="未完成："+e.Message;}finally{online.Enabled=true;}};panel.Controls.Add(online);
+  var rollback=new Button{Text="回退上一次 DLL 更新",AutoSize=true};rollback.Click+=(_,_)=>{try{Ready();if(MessageBox.Show("恢复上一套 DLL？请保持 LabVIEW 关闭。","回退",MessageBoxButtons.OKCancel)!=DialogResult.OK)return;Engine.Rollback(folder.Text);status.Text="回退完成，可重新打开 LabVIEW。";}catch(Exception e){status.Text="未完成："+e.Message;}};panel.Controls.Add(rollback);panel.Controls.Add(status);
+ }
+ void Ready(){if(!closed.Checked)throw new Exception("请关闭宿主后勾选确认");if(string.IsNullOrWhiteSpace(host.Text)||Path.GetFileName(host.Text)!=host.Text)throw new Exception("填写正确的进程名");if(Process.GetProcessesByName("LabVIEW").Length>0||Process.GetProcessesByName(host.Text).Length>0)throw new Exception("检测到宿主仍在运行，请先退出");if(kind.SelectedItem is null||arch.SelectedItem is null)throw new Exception("请选择调用方式和位数");if(!Directory.Exists(folder.Text))throw new Exception("选择现有 DLL 目录");}
+ void Apply(string zip){var stage=Engine.Extract(zip);var p=Engine.Inspect(stage,product.Text,kind.Text,arch.Text);if(MessageBox.Show($"安装 {p.Product} {p.Version}，类型 {p.Kind}/{p.Architecture}？\n这不验证 LabVIEW 调用兼容性。","确认更新",MessageBoxButtons.OKCancel)!=DialogResult.OK)return;Ready();Engine.Install(stage,folder.Text,product.Text,kind.Text,arch.Text);status.Text="DLL 更新完成。旧文件已备份，可回退。请启动 LabVIEW 验证调用。";}
+}

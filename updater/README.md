@@ -1,16 +1,16 @@
-# Team Desktop Updater 0.1.0
+# Team Desktop Updater 0.2.0
 
-面向 .NET 10 Windows 桌面程序的更新与本地回退组件。提供 WinForms 对话框及无界面的 UpdateClient API。不是给任意软件安装后自动生效的 MSI；同事需要在自己的项目中安装 NuGet 并接入启动代码。
+面向 .NET 8 Windows 桌面程序的更新与本地回退组件。提供 WinForms 对话框及无界面的 UpdateClient API。不是给任意软件安装后自动生效的 MSI；同事需要在自己的项目中安装 NuGet 并接入启动代码。
 
 ## 安装
-把 Team.DesktopUpdater.1159792767.0.1.0.nupkg 放入本地 packages 文件夹：
+把 Team.DesktopUpdater.1159792767.0.2.0.nupkg 放入本地 packages 文件夹：
 
 ```powershell
-dotnet add package Team.DesktopUpdater.1159792767 --version 0.1.0 --source ./packages
+dotnet add package Team.DesktopUpdater.1159792767 --version 0.2.0 --source ./packages
 ```
 
 ## 接入示例
-项目目标 net10.0-windows，启用 UseWindowsForms。AppId 必须为每个产品唯一且跨版本保持不变。
+项目目标 net8.0-windows，启用 UseWindowsForms。AppId 必须为每个产品唯一且跨版本保持不变。
 
 ```csharp
 using Team.DesktopUpdater;
@@ -51,3 +51,4 @@ SHA256 用于完整性校验，不能替代独立发布签名。不要让旧程�
 
 ## 验证
 `dotnet run --project tests/Tests.csproj` 检查历史、回退目标、版本比较、损坏文件和路径越界。
+
