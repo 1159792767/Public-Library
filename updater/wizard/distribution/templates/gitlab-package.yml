@@ -1,0 +1,26 @@
+# Merge into existing CI; select a Windows PowerShell Runner with .NET 10 SDK.
+# Replace PROJECT_PATH. Increment RELEASE_VERSION for each release.
+updater-package:
+  tags: [windows]
+  variables:
+    PROJECT_PATH: "src/ProductA/ProductA.csproj"
+    RELEASE_VERSION: "1.0.1"
+  script:
+    - |
+      $ErrorActionPreference = 'Stop'
+      $project = $env:PROJECT_PATH
+      $version = $env:RELEASE_VERSION
+      if ($version -notmatch '^\d+\.\d+\.\d+$') { throw 'Invalid release version' }
+      $settings = Get-Content -Raw (Join-Path (Split-Path $project) 'TeamUpdater.Generated/updater-settings.json') | ConvertFrom-Json
+      if ($settings.downloadPrefix -like '*updates.invalid*') { throw 'Configure the team update server first' }
+      dotnet publish $project -c Release -r win-x64 --self-contained true -p:Version=$version -o updater-dist
+      if ($LASTEXITCODE -ne 0) { throw 'Build failed' }
+      $zip = "$($settings.appId)-$version-win-x64.zip"
+      Compress-Archive -Path updater-dist/* -DestinationPath $zip
+      $hash = (Get-FileHash $zip -Algorithm SHA256).Hash
+      @{version=$version;url=($settings.downloadPrefix+$zip);sha256=$hash;notes="Release $version"} | ConvertTo-Json | Set-Content update.json -Encoding utf8
+  artifacts:
+    paths:
+      - "*-win-x64.zip"
+      - update.json
+# Deployment is team-specific: upload ZIP first, then update.json to the product prefix.
