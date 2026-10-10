@@ -2,7 +2,8 @@ namespace Setup;
 internal static class Program {
  [STAThread] static void Main(string[] args){
   if(args.Length==2&&args[0]=="--verify-install"){Installer.Install(Installer.Inspect(args[1],null));return;}
-  ApplicationConfiguration.Initialize();Application.Run(new Wizard());
+  if(args.Length==4&&args[0]=="--verify-github"){GitHubIntegration.Install(GitHubIntegration.Inspect(args[1],args[2],args[3]).GetAwaiter().GetResult());return;}
+  ApplicationConfiguration.Initialize();Application.Run(new GitHubWizard());
  }
 }
 public sealed class Wizard:Form {
@@ -24,7 +25,7 @@ public sealed class Wizard:Form {
  void Render(){back.Enabled=step>0&&step<3;browse.Visible=profile.Visible=step==1;next.Enabled=true;
   title.Text=step switch{0=>"欢迎使用更新器安装向导",1=>"选择需要接入的项目",2=>"确认接入",_=>"项目文件接入完成"};next.Text=step==2?"安装":step==3?"完成":"下一步";
   body.Text=step switch{
-   0=>"向导将安装更新和版本回退组件。\r\n\r\n支持 .NET 8 及以上 Windows Forms 项目。\r\n无需填写 AppId，首次安装自动生成并保存。\r\n\r\n团队服务器由管理员统一预设；没有预设时仅完成本地接入，在线更新暂不可用。\r\n\r\n不会改写业务入口或现有 CI。安装后只需添加一行接入代码。",
+   0=>"向导将安装更新和版本回退组件。\r\n\r\n支持 .NET 8 及以上 WPF 和 Windows Forms 项目。\r\n无需填写 AppId，首次安装自动生成并保存。\r\n\r\n团队服务器由管理员统一预设；没有预设时仅完成本地接入，在线更新暂不可用。\r\n\r\n安装后在主窗口 InitializeComponent(); 后添加一行接入代码。",
    1=>$"项目：\r\n{project??"尚未选择"}\r\n\r\n团队预设：\r\n{profilePath??"未配置；将安装为待配置状态，不可在线更新"}",
    2=>$"项目：{project}\r\n\r\n{(plan!.Existing?"检测到已接入，将保留现有文件和产品标识。":"将备份项目、安装 NuGet、生成配置和按钮接入代码。产品标识自动保存。") }\r\n\r\n{(plan.Connected?"已读取更新地址，仍需验证服务器可用性。":"服务器未配置：安装后不能检查真实更新，需管理员统一配置。")}",
    _=>$"在主窗口 InitializeComponent(); 后添加：\r\n\r\nTeamUpdaterBootstrap.Attach(this);\r\n\r\n运行 dotnet build 并检查按钮位置。\r\n\r\n{(plan!.Connected?"已写入预设地址，发布首个版本后验证。":"在线更新尚未启用。请管理员替换生成配置中 updates.invalid 的地址。")}\r\n\r\n原项目备份和说明位于 TeamUpdater.Generated。\r\n回退要求保留旧目录，不回退业务数据。"};

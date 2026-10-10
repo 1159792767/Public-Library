@@ -1,0 +1,54 @@
+using System;
+using System.IO;
+using System.Reflection;
+using System.Text.Json;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Interop;
+using Team.DesktopUpdater;
+
+public static class TeamUpdaterBootstrap
+{
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Window, object> Attached = new();
+    public static void Attach(Window owner)
+    {
+        if (Attached.TryGetValue(owner, out _)) return;
+        using var json = JsonDocument.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "updater-settings.json")));
+        var config = json.RootElement;
+        var assembly = Assembly.GetEntryAssembly() ?? throw new InvalidOperationException("No application assembly");
+        var client = new UpdateClient(new UpdateOptions(
+            config.GetProperty("appId").GetString()!, assembly.GetName().Version?.ToString(3) ?? "1.0.0",
+            assembly.GetName().Name + ".exe", new Uri(config.GetProperty("manifestUrl").GetString()!),
+            config.GetProperty("downloadPrefix").GetString()!));
+        var button = new Button { Content = "更新 / 回退", Margin = new Thickness(8), Padding = new Thickness(12, 4, 12, 4), HorizontalAlignment = HorizontalAlignment.Right };
+        var content = owner.Content;
+        owner.Content = null;
+        var layout = new DockPanel();
+        DockPanel.SetDock(button, Dock.Top);
+        layout.Children.Add(button);
+        layout.Children.Add(new ContentPresenter { Content = content });
+        owner.Content = layout;
+        Attached.Add(owner, new object());
+        button.Click += (_, _) => UpdateDialog.Show(new WindowOwner(new WindowInteropHelper(owner).Handle), client, () => System.Windows.Application.Current.Shutdown());
+        void Register()
+        {
+            try { client.RegisterCurrent(); }
+            catch (Exception error) { button.IsEnabled = false; System.Windows.MessageBox.Show(owner, "更新器初始化失败：" + error.Message); }
+        }
+        if (owner.IsLoaded) Register();
+        else owner.Loaded += (_, _) => Register();
+        bool checking=false;
+        async void Check(){
+            if(checking || !button.IsEnabled) return; checking=true;
+            try { var latest=await client.CheckAsync(); button.Content=latest is null?"更新 / 回退":"发现更新 "+latest.Version; }
+            catch(Exception error){button.Content="检查更新 / 重试";System.Diagnostics.Trace.WriteLine("Update check: "+error.GetBaseException().Message);}
+            finally{checking=false;}
+        }
+        var timer=new System.Windows.Threading.DispatcherTimer{Interval=TimeSpan.FromMinutes(15)};timer.Tick+=(_,_)=>Check();timer.Start();owner.Closed+=(_,_)=>timer.Stop();
+        if(owner.IsLoaded) Check(); else owner.Loaded+=(_,_)=>Check();
+    }
+    private sealed class WindowOwner(IntPtr handle) : System.Windows.Forms.IWin32Window
+    {
+        public IntPtr Handle => handle;
+    }
+}

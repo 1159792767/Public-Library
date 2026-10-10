@@ -1,0 +1,20 @@
+using System;
+using System.Runtime.CompilerServices;
+using System.Windows;
+using System.Windows.Threading;
+internal static class TeamUpdaterAutoStart
+{
+    [ModuleInitializer]
+    internal static void Initialize()
+    {
+        var timer=new DispatcherTimer(DispatcherPriority.ApplicationIdle){Interval=TimeSpan.FromSeconds(1)};
+        timer.Tick+=(_,_)=>{
+            var owner=Application.Current?.MainWindow;
+            if(owner is null || !owner.IsVisible) return;
+            timer.Stop();
+            try { TeamUpdaterBootstrap.Attach(owner); }
+            catch(Exception error){ MessageBox.Show(owner,"更新器接入失败："+error.Message); }
+        };
+        timer.Start();
+    }
+}

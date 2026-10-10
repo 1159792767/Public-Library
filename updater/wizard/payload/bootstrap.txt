@@ -22,9 +22,20 @@ public static class TeamUpdaterBootstrap
             Anchor = AnchorStyles.Top | AnchorStyles.Right, Left = Math.Max(0, owner.ClientSize.Width - 130), Top = 8 };
         button.Click += (_, _) => UpdateDialog.Show(owner, client, Application.Exit);
         owner.Controls.Add(button); button.BringToFront();
-        owner.Shown += (_, _) => {
+        void Register() {
             try { client.RegisterCurrent(); }
             catch (Exception error) { button.Enabled = false; MessageBox.Show(owner, "更新器初始化失败：" + error.Message); }
-        };
+        }
+        if(owner.Visible) Register(); else owner.Shown += (_, _) => Register();
+        bool checking = false;
+        async void Check() {
+            if(checking || owner.IsDisposed || !button.Enabled) return;
+            checking=true;
+            try { var latest=await client.CheckAsync(); if(!button.IsDisposed) button.Text=latest is null?"更新 / 回退":"发现更新 "+latest.Version; }
+            catch(Exception error){ if(!button.IsDisposed){button.Text="检查更新 / 重试";System.Diagnostics.Trace.WriteLine("Update check: "+error.GetBaseException().Message);} }
+            finally{checking=false;}
+        }
+        var timer=new System.Windows.Forms.Timer{Interval=15*60*1000};timer.Tick+=(_,_)=>Check();timer.Start();owner.FormClosed+=(_,_)=>timer.Dispose();
+        if(owner.Visible) Check(); else owner.Shown+=(_,_)=>Check();
     }
 }
