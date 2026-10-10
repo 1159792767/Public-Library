@@ -1,0 +1,13 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2012/06/nuspec.xsd">
+  <metadata>
+    <id>Demo.Common.1159792767</id>
+    <version>1.0.3</version>
+    <authors>1159792767</authors>
+    <description>Public dependency update demonstration</description>
+    <repository type="git" commit="1b394257174bde8a8d82e7f14115378abf04e069" />
+    <dependencies>
+      <group targetFramework="net8.0" />
+    </dependencies>
+  </metadata>
+</package>
