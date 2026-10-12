@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net8.0</TargetFramework><PackageId>Demo.Common.1159792767</PackageId><Version>1.0.3</Version><Authors>1159792767</Authors><Description>Public dependency update demonstration</Description></PropertyGroup><ItemGroup><Compile Remove="updater/**/*.cs;library-tests/**/*.cs" /></ItemGroup></Project>
+<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net8.0</TargetFramework><PackageId>Demo.Common.1159792767</PackageId><Version>1.0.4</Version><Authors>1159792767</Authors><Description>Public dependency update demonstration</Description></PropertyGroup><ItemGroup><Compile Remove="updater/**/*.cs;library-tests/**/*.cs" /></ItemGroup></Project>
 
 
 
